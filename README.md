@@ -1,6 +1,6 @@
 # South Florida Traffic Crash Analysis (2021–2023)
 
-**A data analytics portfolio project by Sai Rathan Reddy Anumula — FAU Master's in Data Science, May 2026**
+**A data analytics portfolio project by Sai Rathan Reddy Anumula**
 
 ---
 
