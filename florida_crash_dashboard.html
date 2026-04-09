@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Florida Crash Analytics</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;600;700;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:       #0b0f1a;
+    --panel:    #111827;
+    --panel2:   #1a2236;
+    --border:   #1e2d45;
+    --text:     #e2e8f0;
+    --muted:    #64748b;
+    --blue:     #38bdf8;
+    --orange:   #fb923c;
+    --teal:     #2dd4bf;
+    --amber:    #fbbf24;
+    --red:      #f87171;
+    --green:    #4ade80;
+    --purple:   #a78bfa;
+    --glow:     rgba(56,189,248,.12);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow',sans-serif;font-size:14px;overflow-x:hidden}
+
+  /* ── TOP BAR ── */
+  header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 28px;height:56px;
+    background:linear-gradient(90deg,#0d1525 0%,#111827 100%);
+    border-bottom:1px solid var(--border);
+    position:sticky;top:0;z-index:100;
+  }
+  .logo{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;
+    letter-spacing:2px;color:var(--blue);text-transform:uppercase;
+    display:flex;align-items:center;gap:10px}
+  .logo span{color:var(--text);font-weight:300}
+  .tagline{font-size:11px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase}
+
+  /* ── NAV TABS ── */
+  nav{display:flex;gap:4px;padding:14px 28px 0;border-bottom:1px solid var(--border);
+    background:var(--panel);position:sticky;top:56px;z-index:99}
+  .tab{
+    padding:9px 22px;border-radius:6px 6px 0 0;cursor:pointer;
+    font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:600;
+    letter-spacing:1px;text-transform:uppercase;
+    border:1px solid transparent;border-bottom:none;
+    color:var(--muted);transition:all .2s;
+  }
+  .tab:hover{color:var(--text);background:var(--panel2)}
+  .tab.active{
+    color:var(--blue);background:var(--bg);
+    border-color:var(--border);border-bottom-color:var(--bg);
+    margin-bottom:-1px;
+  }
+
+  /* ── FILTER BAR ── */
+  .filters{
+    display:flex;gap:16px;align-items:center;flex-wrap:wrap;
+    padding:12px 28px;background:var(--panel);border-bottom:1px solid var(--border);
+  }
+  .filter-label{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-right:4px}
+  .pill-group{display:flex;gap:6px;flex-wrap:wrap}
+  .pill{
+    padding:5px 14px;border-radius:20px;border:1px solid var(--border);
+    cursor:pointer;font-size:12px;font-weight:600;letter-spacing:.5px;
+    color:var(--muted);background:var(--panel2);transition:all .18s;
+  }
+  .pill:hover{border-color:var(--blue);color:var(--blue)}
+  .pill.active{background:var(--blue);color:#000;border-color:var(--blue)}
+  .filter-sep{width:1px;height:24px;background:var(--border)}
+
+  /* ── PAGES ── */
+  .page{display:none;padding:24px 28px 40px;animation:fadeIn .3s ease}
+  .page.active{display:block}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  /* ── GRID ── */
+  .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
+  .row2{display:grid;grid-template-columns:1.6fr 1fr;gap:16px;margin-bottom:20px}
+  .row-full{margin-bottom:20px}
+  .row3{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+  .row-trio{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px}
+
+  /* ── PANELS ── */
+  .panel{
+    background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    padding:20px;position:relative;overflow:hidden;
+  }
+  .panel::before{
+    content:'';position:absolute;top:0;left:0;right:0;height:2px;
+    background:linear-gradient(90deg,var(--blue),var(--teal));opacity:.6;
+  }
+  .panel-title{
+    font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:600;
+    letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:16px;
+  }
+
+  /* ── KPI CARDS ── */
+  .kpi{padding:18px 20px;cursor:default}
+  .kpi .val{
+    font-family:'Barlow Condensed',sans-serif;font-size:38px;font-weight:800;
+    line-height:1;margin:6px 0 4px;
+  }
+  .kpi .delta{font-size:11px;color:var(--muted);letter-spacing:.5px}
+  .kpi .icon{font-size:20px;margin-bottom:4px}
+  .kpi.blue .val{color:var(--blue)}
+  .kpi.orange .val{color:var(--orange)}
+  .kpi.teal .val{color:var(--teal)}
+  .kpi.amber .val{color:var(--amber)}
+
+  /* ── CHART WRAPPERS ── */
+  .chart-wrap{position:relative;width:100%}
+  .chart-wrap canvas{width:100%!important}
+
+  /* ── HEATMAP ── */
+  .heatmap-wrap{overflow-x:auto}
+  table.heatmap{border-collapse:collapse;width:100%;font-size:12px}
+  table.heatmap th{
+    padding:7px 10px;font-family:'Barlow Condensed',sans-serif;
+    font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);
+    font-weight:600;text-align:center;
+  }
+  table.heatmap th.row-h{text-align:left;min-width:44px}
+  table.heatmap td{
+    padding:10px 8px;text-align:center;font-weight:600;font-size:12px;
+    border-radius:4px;transition:transform .15s;cursor:default;
+    min-width:90px;
+  }
+  table.heatmap td:hover{transform:scale(1.06);z-index:2;position:relative}
+
+  /* ── PAGE 3 WEEKEND TABLE ── */
+  .weekend-table{width:100%;border-collapse:collapse;font-size:13px}
+  .weekend-table th{padding:8px 12px;text-align:left;color:var(--muted);
+    font-size:11px;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--border)}
+  .weekend-table td{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.04)}
+  .weekend-table tr:hover td{background:var(--panel2)}
+  .bar-inline{height:6px;border-radius:3px;display:inline-block;vertical-align:middle;margin-left:8px}
+
+  /* ── FOOTER ── */
+  footer{text-align:center;padding:16px;font-size:11px;color:var(--muted);
+    border-top:1px solid var(--border);letter-spacing:.5px}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">🚦 Florida <span>Crash Analytics</span></div>
+    <div class="tagline">2021 – 2023 · Miami-Dade · Broward · Palm Beach</div>
+  </div>
+  <div style="font-size:11px;color:var(--muted)">Source: florida_crashes_cleaned.xlsx · 500 records</div>
+</header>
+
+<nav>
+  <div class="tab active" onclick="showPage('p1',this)">📊 Overview</div>
+  <div class="tab" onclick="showPage('p2',this)">📈 Trends</div>
+  <div class="tab" onclick="showPage('p3',this)">👤 Drivers</div>
+</nav>
+
+<div class="filters">
+  <span class="filter-label">County</span>
+  <div class="pill-group" id="county-pills">
+    <div class="pill active" data-county="All">All</div>
+    <div class="pill" data-county="Miami-Dade">Miami-Dade</div>
+    <div class="pill" data-county="Broward">Broward</div>
+    <div class="pill" data-county="Palm Beach">Palm Beach</div>
+  </div>
+  <div class="filter-sep"></div>
+  <span class="filter-label">Year</span>
+  <div class="pill-group" id="year-pills">
+    <div class="pill active" data-year="All">All</div>
+    <div class="pill" data-year="2021">2021</div>
+    <div class="pill" data-year="2022">2022</div>
+    <div class="pill" data-year="2023">2023</div>
+  </div>
+</div>
+
+<!-- PAGE 1: OVERVIEW -->
+<div class="page active" id="p1">
+  <div class="kpi-row">
+    <div class="panel kpi blue">
+      <div class="icon">🚗</div>
+      <div class="panel-title">Total Accidents</div>
+      <div class="val" id="kpi-total">129,979</div>
+      <div class="delta">Across all counties & years</div>
+    </div>
+    <div class="panel kpi orange">
+      <div class="icon">📊</div>
+      <div class="panel-title">Avg Accidents / Record</div>
+      <div class="val" id="kpi-avg">260.0</div>
+      <div class="delta">Per data record</div>
+    </div>
+    <div class="panel kpi teal">
+      <div class="icon">🏥</div>
+      <div class="panel-title">Injury Rate</div>
+      <div class="val" id="kpi-injury">47.8%</div>
+      <div class="delta">Of all reported incidents</div>
+    </div>
+    <div class="panel kpi amber">
+      <div class="icon">⚡</div>
+      <div class="panel-title">Top Cause</div>
+      <div class="val" id="kpi-cause" style="font-size:26px;margin-top:10px">Speeding</div>
+      <div class="delta">Highest total accidents</div>
+    </div>
+  </div>
+
+  <div class="row2">
+    <div class="panel">
+      <div class="panel-title">Avg Accidents Count by Day × Time of Day</div>
+      <div class="heatmap-wrap">
+        <table class="heatmap" id="heatmap-table"></table>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Average Accidents Count by Cause</div>
+      <div class="chart-wrap" style="height:280px">
+        <canvas id="chart-avg-reason"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="row3">
+    <div class="panel">
+      <div class="panel-title">Total Accidents by County per Year</div>
+      <div class="chart-wrap" style="height:240px">
+        <canvas id="chart-county-year"></canvas>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Share of Total Accidents by Cause</div>
+      <div class="chart-wrap" style="height:240px">
+        <canvas id="chart-donut"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 2: TRENDS -->
+<div class="page" id="p2">
+  <div class="row-full panel" style="margin-bottom:20px">
+    <div class="panel-title">Accident Trend by County Over Time (2021 – 2023)</div>
+    <div class="chart-wrap" style="height:300px">
+      <canvas id="chart-trend"></canvas>
+    </div>
+  </div>
+  <div class="row3">
+    <div class="panel">
+      <div class="panel-title">Injury vs No Injury by Cause of Accident</div>
+      <div class="chart-wrap" style="height:280px">
+        <canvas id="chart-injury-reason"></canvas>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Weekday vs Weekend Avg Accidents by County</div>
+      <div class="chart-wrap" style="height:280px">
+        <canvas id="chart-weekday"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 3: DRIVERS -->
+<div class="page" id="p3">
+  <div class="row3">
+    <div class="panel">
+      <div class="panel-title">Avg Accidents Count by Driver Age Group</div>
+      <div class="chart-wrap" style="height:300px">
+        <canvas id="chart-age"></canvas>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Share of Total Accidents by Cause</div>
+      <div class="chart-wrap" style="height:300px">
+        <canvas id="chart-donut2"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="row-full panel">
+    <div class="panel-title">Weekday vs Weekend Breakdown by County</div>
+    <table class="weekend-table" id="weekend-table">
+      <thead><tr>
+        <th>County</th><th>Day Type</th><th>Avg Accidents</th><th>Visual</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="row-full panel" style="margin-top:20px">
+    <div class="panel-title">Distribution of Accidents Count by County</div>
+    <div class="chart-wrap" style="height:240px">
+      <canvas id="chart-boxlike"></canvas>
+    </div>
+  </div>
+</div>
+
+<footer>Florida Crash Analytics Dashboard · Built from florida_crashes_cleaned.xlsx · 2021–2023</footer>
+
+<script>
+// ── RAW DATA ─────────────────────────────────────────────────────────────────
+const RAW = {
+  countyYear: [
+    {county:'Broward',year:2021,val:11757},{county:'Broward',year:2022,val:12757},{county:'Broward',year:2023,val:18308},
+    {county:'Miami-Dade',year:2021,val:14418},{county:'Miami-Dade',year:2022,val:14143},{county:'Miami-Dade',year:2023,val:18202},
+    {county:'Palm Beach',year:2021,val:9823},{county:'Palm Beach',year:2022,val:17197},{county:'Palm Beach',year:2023,val:13374},
+  ],
+  heatmap: [
+    {day:'Mon',time:'Late Night',val:221},{day:'Mon',time:'Early Morning',val:307},{day:'Mon',time:'Mid Morning',val:320},{day:'Mon',time:'Afternoon',val:242},{day:'Mon',time:'Evening Rush',val:246},{day:'Mon',time:'Night',val:252},
+    {day:'Tue',time:'Late Night',val:217},{day:'Tue',time:'Early Morning',val:317},{day:'Tue',time:'Mid Morning',val:252},{day:'Tue',time:'Afternoon',val:227},{day:'Tue',time:'Evening Rush',val:227},{day:'Tue',time:'Night',val:288},
+    {day:'Wed',time:'Late Night',val:315},{day:'Wed',time:'Early Morning',val:273},{day:'Wed',time:'Mid Morning',val:240},{day:'Wed',time:'Afternoon',val:256},{day:'Wed',time:'Evening Rush',val:242},{day:'Wed',time:'Night',val:311},
+    {day:'Thu',time:'Late Night',val:208},{day:'Thu',time:'Early Morning',val:319},{day:'Thu',time:'Mid Morning',val:309},{day:'Thu',time:'Afternoon',val:191},{day:'Thu',time:'Evening Rush',val:243},{day:'Thu',time:'Night',val:221},
+    {day:'Fri',time:'Late Night',val:236},{day:'Fri',time:'Early Morning',val:284},{day:'Fri',time:'Mid Morning',val:287},{day:'Fri',time:'Afternoon',val:231},{day:'Fri',time:'Evening Rush',val:213},{day:'Fri',time:'Night',val:281},
+    {day:'Sat',time:'Late Night',val:323},{day:'Sat',time:'Early Morning',val:265},{day:'Sat',time:'Mid Morning',val:209},{day:'Sat',time:'Afternoon',val:286},{day:'Sat',time:'Evening Rush',val:178},{day:'Sat',time:'Night',val:303},
+    {day:'Sun',time:'Late Night',val:266},{day:'Sun',time:'Early Morning',val:304},{day:'Sun',time:'Mid Morning',val:213},{day:'Sun',time:'Afternoon',val:264},{day:'Sun',time:'Evening Rush',val:251},{day:'Sun',time:'Night',val:248},
+  ],
+  avgReason:[
+    {reason:'Drowsy',val:268.2},{reason:'Speeding',val:267.1},{reason:'DUI',val:258.3},{reason:'Distracted Driving',val:251.9},{reason:'Weather',val:251.6}
+  ],
+  injuryReason:[
+    {reason:'Speeding',no:61,yes:57},{reason:'Drowsy',no:51,yes:49},{reason:'DUI',no:51,yes:49},
+    {reason:'Distracted Driving',no:52,yes:41},{reason:'Weather',no:46,yes:43}
+  ],
+  ageGroup:[
+    {age:'15-19',val:252.2},{age:'20-24',val:264.9},{age:'25-34',val:273.1},{age:'35-49',val:247.1},{age:'50+',val:261.4}
+  ],
+  donut:[
+    {reason:'Speeding',val:31516},{reason:'Drowsy',val:26818},{reason:'DUI',val:25831},
+    {reason:'Distracted Driving',val:23425},{reason:'Weather',val:22389}
+  ],
+  weekday:[
+    {county:'Broward',type:'Weekday',val:267.6},{county:'Broward',type:'Weekend',val:229.6},
+    {county:'Miami-Dade',type:'Weekday',val:258.0},{county:'Miami-Dade',type:'Weekend',val:249.4},
+    {county:'Palm Beach',type:'Weekday',val:256.7},{county:'Palm Beach',type:'Weekend',val:303.8},
+  ],
+  // per-record raw approximations for box-like chart
+  boxStats:{
+    'Miami-Dade':{min:60,q1:150,median:250,q3:375,max:500},
+    'Broward':{min:60,q1:155,median:250,q3:355,max:490},
+    'Palm Beach':{min:50,q1:150,median:260,q3:390,max:497},
+  }
+};
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let activeCounty='All', activeYear='All';
+const charts={};
+
+// ── COLORS ───────────────────────────────────────────────────────────────────
+const C={
+  blue:'#38bdf8',orange:'#fb923c',teal:'#2dd4bf',amber:'#fbbf24',red:'#f87171',purple:'#a78bfa',green:'#4ade80',
+  counties:{'Miami-Dade':'#38bdf8','Broward':'#fb923c','Palm Beach':'#2dd4bf'},
+  reasons:{'Speeding':'#fb923c','Drowsy':'#f87171','DUI':'#60a5fa','Distracted Driving':'#2dd4bf','Weather':'#94a3b8'},
+};
+const cf=(c,a=1)=>{const r=parseInt(c.slice(1,3),16),g=parseInt(c.slice(3,5),16),b=parseInt(c.slice(5,7),16);return `rgba(${r},${g},${b},${a})`};
+
+// ── CHART DEFAULTS ────────────────────────────────────────────────────────────
+Chart.defaults.color='#64748b';
+Chart.defaults.borderColor='#1e2d45';
+Chart.defaults.font.family="'Barlow',sans-serif";
+
+function baseOpts(extra={}){
+  return {responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:'#94a3b8',font:{size:11}}},tooltip:{backgroundColor:'#1a2236',borderColor:'#1e2d45',borderWidth:1}},
+    ...extra};
+}
+
+// ── FILTER LOGIC ─────────────────────────────────────────────────────────────
+function filterCountyYear(arr,countyKey='county',yearKey='year'){
+  return arr.filter(d=>{
+    const cOk = activeCounty==='All'||d[countyKey]===activeCounty;
+    const yOk = activeYear==='All'||d[yearKey]===activeYear;
+    return cOk&&yOk;
+  });
+}
+
+// ── PAGE SWITCH ───────────────────────────────────────────────────────────────
+function showPage(id,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  el.classList.add('active');
+}
+
+// ── PILL CLICKS ───────────────────────────────────────────────────────────────
+document.querySelectorAll('#county-pills .pill').forEach(p=>{
+  p.addEventListener('click',()=>{
+    document.querySelectorAll('#county-pills .pill').forEach(x=>x.classList.remove('active'));
+    p.classList.add('active');
+    activeCounty=p.dataset.county;
+    updateAll();
+  });
+});
+document.querySelectorAll('#year-pills .pill').forEach(p=>{
+  p.addEventListener('click',()=>{
+    document.querySelectorAll('#year-pills .pill').forEach(x=>x.classList.remove('active'));
+    p.classList.add('active');
+    activeYear=p.dataset.year==='All'?'All':parseInt(p.dataset.year);
+    updateAll();
+  });
+});
+
+// ── HEATMAP ───────────────────────────────────────────────────────────────────
+const DAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const TIMES=['Late Night','Early Morning','Mid Morning','Afternoon','Evening Rush','Night'];
+const TIME_SHORT={'Late Night':'Late\nNight (0-4)','Early Morning':'Early\nMorning (5-8)','Mid Morning':'Mid\nMorning (9-12)','Afternoon':'Afternoon\n(13-16)','Evening Rush':'Evening\nRush (17-20)','Night':'Night\n(21-23)'};
+
+function heatColor(v,min,max){
+  const t=(v-min)/(max-min);
+  if(t<.33)return `hsl(30,${40+t*40}%,${18+t*12}%)`;
+  if(t<.66)return `hsl(30,${70+t*20}%,${30+t*15}%)`;
+  return `hsl(${25-t*10},${85}%,${42+t*18}%)`;
+}
+
+function buildHeatmap(){
+  const tbl=document.getElementById('heatmap-table');
+  tbl.innerHTML='';
+  // header
+  const hrow=document.createElement('tr');
+  hrow.innerHTML='<th class="row-h"></th>'+TIMES.map(t=>`<th>${TIME_SHORT[t].replace('\n','<br>')}</th>`).join('');
+  tbl.appendChild(hrow);
+  const vals=RAW.heatmap.map(d=>d.val);
+  const mn=Math.min(...vals), mx=Math.max(...vals);
+  DAYS.forEach(day=>{
+    const tr=document.createElement('tr');
+    let html=`<th class="row-h" style="color:#94a3b8;font-weight:700;font-size:12px">${day}</th>`;
+    TIMES.forEach(time=>{
+      const row=RAW.heatmap.find(d=>d.day===day&&d.time===time);
+      const v=row?row.val:0;
+      const bg=heatColor(v,mn,mx);
+      const textC=v>((mn+mx)/2)?'#fff':'#ccc';
+      html+=`<td style="background:${bg};color:${textC}" title="${day} ${time}: ${v}">${v}</td>`;
+    });
+    tr.innerHTML=html;
+    tbl.appendChild(tr);
+  });
+}
+
+// ── KPI UPDATE ────────────────────────────────────────────────────────────────
+function updateKPIs(){
+  let data=filterCountyYear(RAW.countyYear);
+  const total=data.reduce((s,d)=>s+d.val,0);
+  // approximation: avg from raw heatmap data (whole-data avg = 260)
+  document.getElementById('kpi-total').textContent=total.toLocaleString();
+  document.getElementById('kpi-avg').textContent='260.0';
+  document.getElementById('kpi-injury').textContent='47.8%';
+  document.getElementById('kpi-cause').textContent='Speeding';
+}
+
+// ── CHART BUILDERS ────────────────────────────────────────────────────────────
+function mk(id,type,data,opts){
+  if(charts[id]){charts[id].destroy();delete charts[id];}
+  const ctx=document.getElementById(id);
+  if(!ctx)return;
+  charts[id]=new Chart(ctx,{type,data,options:baseOpts(opts)});
+}
+
+function buildCountyYear(){
+  const data=filterCountyYear(RAW.countyYear);
+  const years=[...new Set(RAW.countyYear.map(d=>d.year))].sort();
+  const counties=['Miami-Dade','Broward','Palm Beach'];
+  const datasets=counties.map(c=>({
+    label:c,
+    data:years.map(y=>{const r=data.find(d=>d.county===c&&d.year===y);return r?r.val:null;}),
+    backgroundColor:cf(C.counties[c],.8),borderColor:C.counties[c],borderWidth:1,
+    borderRadius:4,
+  }));
+  mk('chart-county-year','bar',{labels:years,datasets},{
+    plugins:{legend:{position:'top'},tooltip:{mode:'index',intersect:false}},
+    scales:{x:{stacked:false,grid:{color:'#1e2d45'},ticks:{color:'#94a3b8'}},y:{grid:{color:'#1e2d45'},ticks:{color:'#94a3b8',callback:v=>v.toLocaleString()}}}
+  });
+}
+
+function buildAvgReason(){
+  mk('chart-avg-reason','bar',
+    {labels:RAW.avgReason.map(d=>d.reason),
+     datasets:[{data:RAW.avgReason.map(d=>d.val),
+       backgroundColor:RAW.avgReason.map(d=>cf(C.reasons[d.reason],.8)),
+       borderColor:RAW.avgReason.map(d=>C.reasons[d.reason]),borderWidth:1,borderRadius:4}]},
+    {indexAxis:'y',plugins:{legend:{display:false},datalabels:{display:false}},
+     scales:{x:{min:230,max:280,grid:{color:'#1e2d45'},ticks:{color:'#94a3b8'}},y:{grid:{display:false},ticks:{color:'#94a3b8'}}}}
+  );
+}
+
+function buildDonut(canvasId){
+  mk(canvasId,'doughnut',
+    {labels:RAW.donut.map(d=>d.reason),
+     datasets:[{data:RAW.donut.map(d=>d.val),backgroundColor:RAW.donut.map(d=>cf(C.reasons[d.reason],.85)),
+       borderColor:'#0b0f1a',borderWidth:2,hoverOffset:8}]},
+    {cutout:'55%',plugins:{legend:{position:'right',labels:{color:'#94a3b8',font:{size:11},padding:12}},tooltip:{callbacks:{label:ctx=>{const tot=ctx.dataset.data.reduce((a,b)=>a+b,0);return ` ${ctx.label}: ${(ctx.raw/tot*100).toFixed(1)}%`;}}}}}
+  );
+}
+
+function buildTrend(){
+  const data=filterCountyYear(RAW.countyYear);
+  const years=[...new Set(RAW.countyYear.map(d=>d.year))].sort();
+  const counties=['Miami-Dade','Broward','Palm Beach'];
+  const datasets=counties.map(c=>({
+    label:c,
+    data:years.map(y=>{const r=data.find(d=>d.county===c&&d.year===y);return r?r.val:null;}),
+    borderColor:C.counties[c],backgroundColor:cf(C.counties[c],.1),
+    pointBackgroundColor:C.counties[c],pointRadius:5,pointHoverRadius:8,
+    tension:.3,fill:false,borderWidth:2.5,
+  }));
+  mk('chart-trend','line',{labels:years,datasets},{
+    plugins:{legend:{position:'top'},tooltip:{mode:'index',intersect:false,callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ctx.raw.toLocaleString()}`}}},
+    scales:{x:{grid:{color:'#1e2d45'},ticks:{color:'#94a3b8'}},y:{grid:{color:'#1e2d45'},ticks:{color:'#94a3b8',callback:v=>v.toLocaleString()}}}
+  });
+}
+
+function buildInjuryReason(){
+  mk('chart-injury-reason','bar',
+    {labels:RAW.injuryReason.map(d=>d.reason),
+     datasets:[
+       {label:'No Injury',data:RAW.injuryReason.map(d=>d.no),backgroundColor:cf('#475569',.8),borderRadius:0},
+       {label:'Injury',data:RAW.injuryReason.map(d=>d.yes),backgroundColor:cf(C.orange,.85),borderRadius:0},
+     ]},
+    {plugins:{legend:{position:'top'},tooltip:{mode:'index',intersect:false}},
+     scales:{x:{stacked:true,grid:{display:false},ticks:{color:'#94a3b8',font:{size:11}}},y:{stacked:true,grid:{color:'#1e2d45'},ticks:{color:'#94a3b8'}}}}
+  );
+}
+
+function buildWeekday(){
+  const counties=['Miami-Dade','Broward','Palm Beach'];
+  mk('chart-weekday','bar',
+    {labels:counties,
+     datasets:[
+       {label:'Weekday',data:counties.map(c=>RAW.weekday.find(d=>d.county===c&&d.type==='Weekday').val),
+         backgroundColor:cf(C.blue,.8),borderColor:C.blue,borderWidth:1,borderRadius:4},
+       {label:'Weekend',data:counties.map(c=>RAW.weekday.find(d=>d.county===c&&d.type==='Weekend').val),
+         backgroundColor:cf(C.orange,.8),borderColor:C.orange,borderWidth:1,borderRadius:4},
+     ]},
+    {plugins:{legend:{position:'top'},tooltip:{mode:'index',intersect:false}},
+     scales:{x:{grid:{display:false},ticks:{color:'#94a3b8'}},y:{min:180,max:340,grid:{color:'#1e2d45'},ticks:{color:'#94a3b8'}}}}
+  );
+}
+
+function buildAge(){
+  const colors=RAW.ageGroup.map(d=>d.age==='25-34'?cf(C.teal,.9):cf('#475569',.8));
+  const borders=RAW.ageGroup.map(d=>d.age==='25-34'?C.teal:'#475569');
+  mk('chart-age','bar',
+    {labels:RAW.ageGroup.map(d=>d.age),
+     datasets:[{data:RAW.ageGroup.map(d=>d.val),backgroundColor:colors,borderColor:borders,borderWidth:1,borderRadius:4}]},
+    {plugins:{legend:{display:false}},
+     scales:{x:{grid:{display:false},ticks:{color:'#94a3b8'}},y:{min:230,max:290,grid:{color:'#1e2d45'},ticks:{color:'#94a3b8'}}}}
+  );
+}
+
+function buildBoxLike(){
+  // Render as grouped bars showing min/median/max for each county
+  const counties=['Miami-Dade','Broward','Palm Beach'];
+  const stats=RAW.boxStats;
+  mk('chart-boxlike','bar',
+    {labels:counties,
+     datasets:[
+       {label:'Min',data:counties.map(c=>stats[c].min),backgroundColor:cf('#334155',.7),borderRadius:3},
+       {label:'Q1',data:counties.map(c=>stats[c].q1-stats[c].min),backgroundColor:cf('#1e3a5f',.7),borderRadius:0},
+       {label:'Median',data:counties.map(c=>stats[c].median-stats[c].q1),backgroundColor:cf(C.amber,.75),borderRadius:0},
+       {label:'Q3',data:counties.map(c=>stats[c].q3-stats[c].median),backgroundColor:cf('#1e3a5f',.7),borderRadius:0},
+       {label:'Max-Q3',data:counties.map(c=>stats[c].max-stats[c].q3),backgroundColor:cf('#334155',.7),borderRadius:3},
+     ]},
+    {plugins:{legend:{position:'top'},tooltip:{callbacks:{label:ctx=>{
+      const c=counties[ctx.dataIndex], s=stats[c];
+      return [`Min:${s.min} Q1:${s.q1} Median:${s.median} Q3:${s.q3} Max:${s.max}`];
+    }}}},
+     scales:{x:{stacked:true,grid:{display:false},ticks:{color:'#94a3b8'}},y:{stacked:true,grid:{color:'#1e2d45'},ticks:{color:'#94a3b8'}}}}
+  );
+}
+
+function buildWeekendTable(){
+  const tbody=document.querySelector('#weekend-table tbody');
+  tbody.innerHTML='';
+  const maxVal=Math.max(...RAW.weekday.map(d=>d.val));
+  RAW.weekday.forEach(d=>{
+    const color=d.type==='Weekday'?C.blue:C.orange;
+    const w=Math.round(d.val/maxVal*120);
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td style="font-weight:600;color:#e2e8f0">${d.county}</td>
+      <td><span style="padding:3px 10px;border-radius:12px;font-size:11px;background:${d.type==='Weekday'?'rgba(56,189,248,.15)':'rgba(251,146,60,.15)'};color:${color}">${d.type}</span></td>
+      <td style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;color:${color}">${d.val.toFixed(1)}</td>
+      <td><span class="bar-inline" style="width:${w}px;background:${color};opacity:.7"></span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// ── MASTER UPDATE ─────────────────────────────────────────────────────────────
+function updateAll(){
+  updateKPIs();
+  buildHeatmap();
+  buildCountyYear();
+  buildAvgReason();
+  buildDonut('chart-donut');
+  buildDonut('chart-donut2');
+  buildTrend();
+  buildInjuryReason();
+  buildWeekday();
+  buildAge();
+  buildBoxLike();
+  buildWeekendTable();
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+updateAll();
+</script>
+</body>
+</html>
